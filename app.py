@@ -37,70 +37,261 @@ BLUE = "#1F5C8B"
 BLUE_LIGHT = "#E3EEF5"
 GRAY = "#5A5A5A"
 
-CUSTOM_CSS = f"""
+CUSTOM_CSS = """
 <style>
-    .main {{
-        background-color: #FAFBFA;
-    }}
-    h1, h2, h3 {{
-        color: {GREEN};
-        font-family: 'Segoe UI', sans-serif;
-    }}
-    .hero-box {{
-        background: linear-gradient(135deg, {GREEN} 0%, #2E9E5E 100%);
-        padding: 28px 32px;
-        border-radius: 14px;
-        color: white;
-        margin-bottom: 24px;
-    }}
-    .hero-box h1 {{
-        color: white;
-        margin-bottom: 4px;
-    }}
-    .hero-box p {{
-        color: #E8F5EC;
-        font-size: 17px;
-        margin-bottom: 0;
-    }}
-    .stat-card {{
-        background-color: white;
-        border: 1px solid #E0E0E0;
-        border-radius: 12px;
-        padding: 18px;
-        text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }}
-    .stat-card .big {{
-        font-size: 28px;
-        font-weight: 700;
-        color: {GREEN};
-    }}
-    .stat-card .label {{
-        font-size: 13px;
-        color: {GRAY};
-    }}
-    .result-box {{
-        border-radius: 12px;
-        padding: 20px 24px;
-        margin-top: 12px;
-    }}
-    .badge {{
-        display: inline-block;
-        padding: 4px 14px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 14px;
-    }}
-    div[data-testid="stMetricValue"] {{
-        color: {GREEN};
-    }}
-    .footer-note {{
-        font-size: 12px;
-        color: #999999;
-        margin-top: 40px;
-        border-top: 1px solid #EEEEEE;
-        padding-top: 12px;
-    }}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* =========================
+GLOBAL
+========================= */
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+.main {
+    background-color: #F8FAFC;
+}
+
+.block-container{
+    padding-top:2rem;
+    padding-bottom:2rem;
+    max-width:1200px;
+}
+
+/* =========================
+HEADINGS
+========================= */
+
+h1{
+    color:#0F172A;
+    font-weight:800;
+}
+
+h2,h3{
+    color:#0F172A;
+    font-weight:700;
+}
+
+/* =========================
+HERO SECTION
+========================= */
+
+.hero-box{
+    background: linear-gradient(
+        135deg,
+        #2563EB 0%,
+        #1D4ED8 100%
+    );
+
+    padding:48px;
+    border-radius:28px;
+
+    color:white;
+
+    box-shadow:
+    0 10px 40px rgba(37,99,235,.15);
+
+    margin-bottom:30px;
+}
+
+.hero-box h1{
+    color:white;
+    font-size:48px;
+    margin-bottom:10px;
+}
+
+.hero-box p{
+    color:rgba(255,255,255,.9);
+    font-size:18px;
+    line-height:1.7;
+}
+
+/* =========================
+STAT CARD
+========================= */
+
+.stat-card{
+    background:white;
+
+    border:1px solid #E2E8F0;
+
+    border-radius:24px;
+
+    padding:28px;
+
+    text-align:center;
+
+    box-shadow:
+    0 2px 5px rgba(0,0,0,.03),
+    0 10px 25px rgba(0,0,0,.03);
+
+    transition:.25s ease;
+}
+
+.stat-card:hover{
+    transform:translateY(-3px);
+}
+
+.stat-card .big{
+    font-size:32px;
+    font-weight:800;
+    color:#2563EB;
+}
+
+.stat-card .label{
+    margin-top:8px;
+    color:#64748B;
+    font-size:14px;
+}
+
+/* =========================
+RESULT BOX
+========================= */
+
+.result-box{
+    background:white;
+
+    border-radius:24px;
+
+    padding:30px;
+
+    border:1px solid #E2E8F0;
+
+    box-shadow:
+    0 5px 20px rgba(0,0,0,.03);
+}
+
+/* =========================
+BADGE
+========================= */
+
+.badge{
+    display:inline-block;
+
+    padding:8px 18px;
+
+    border-radius:999px;
+
+    font-size:13px;
+
+    font-weight:700;
+}
+
+/* =========================
+METRIC
+========================= */
+
+div[data-testid="metric-container"]{
+    background:white;
+
+    border:1px solid #E2E8F0;
+
+    border-radius:20px;
+
+    padding:20px;
+
+    box-shadow:
+    0 2px 10px rgba(0,0,0,.03);
+}
+
+div[data-testid="stMetricValue"]{
+    color:#2563EB;
+    font-weight:800;
+}
+
+/* =========================
+BUTTON
+========================= */
+
+.stButton > button{
+
+    background:#2563EB !important;
+
+    color:white !important;
+
+    border:none !important;
+
+    border-radius:14px !important;
+
+    height:50px;
+
+    font-weight:600;
+
+    transition:.2s ease;
+}
+
+.stButton > button:hover{
+
+    background:#1D4ED8 !important;
+
+    transform:translateY(-2px);
+}
+
+/* =========================
+SELECT BOX
+========================= */
+
+div[data-baseweb="select"]{
+
+    border-radius:14px;
+}
+
+/* =========================
+SLIDER
+========================= */
+
+.stSlider{
+    padding-top:10px;
+}
+
+/* =========================
+TABS
+========================= */
+
+button[data-baseweb="tab"]{
+    font-weight:600;
+}
+
+button[data-baseweb="tab"][aria-selected="true"]{
+    color:#2563EB;
+}
+
+/* =========================
+DATAFRAME
+========================= */
+
+[data-testid="stDataFrame"]{
+    border-radius:20px;
+    overflow:hidden;
+}
+
+/* =========================
+INFO BOX
+========================= */
+
+.stAlert{
+    border-radius:18px;
+}
+
+/* =========================
+FOOTER
+========================= */
+
+.footer-note{
+
+    margin-top:50px;
+
+    border-top:1px solid #E2E8F0;
+
+    padding-top:20px;
+
+    color:#64748B;
+
+    font-size:13px;
+}
+
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
@@ -284,8 +475,13 @@ def buat_peta_trip(hasil_trip, df_spklu):
 
 st.markdown(f"""
 <div class="hero-box">
-    <h1>🔌 SETRUM</h1>
-    <p>Sistem Evaluasi Trips & Rute untuk Mobilitas EV — bantu kamu putuskan, sebelum beli.</p>
+   <h1>SETRUM</h1>
+
+<p>
+Sistem Evaluasi Trips & Rute untuk Mobilitas EV.<br>
+Membantu pengguna menentukan kelayakan kendaraan listrik
+sebelum membeli dan merencanakan perjalanan dengan lebih percaya diri.
+</p>
 </div>
 """, unsafe_allow_html=True)
 
