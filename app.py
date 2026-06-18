@@ -2,8 +2,7 @@
 SETRUM — Sistem Evaluasi Trips & Rute untuk Mobilitas EV
 Aplikasi web Streamlit — prototipe untuk SIC SATRIA DATA 2026
 
-Cara jalankan lokal: streamlit run app.py
-Cara deploy: push ke GitHub, lalu hubungkan di share.streamlit.io
+Tema Visual: "Lahantara" (Earthy, Sage Green, Mustard Yellow, Dark Olive)
 """
 
 import math
@@ -21,97 +20,162 @@ from sklearn.mixture import GaussianMixture
 
 st.set_page_config(
     page_title="SETRUM — Kalkulator Kelayakan EV",
-    page_icon="🔌",
+    page_icon="🍃",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Palet warna bernuansa Biru dan Abu
-BLUE_PRIMARY = "#1F5C8B"
-BLUE_LIGHT = "#EBF5FB"
-BLUE_DARK = "#154360"
-GRAY_DARK = "#4A5568"
-GRAY_LIGHT = "#F2F4F4"
-GRAY_MEDIUM = "#95A5A6"
+# Palet warna bernuansa Lahantara (Bumi / Earthy)
+SAGE_GREEN = "#E5EBD7"      # Background Utama
+DARK_OLIVE = "#2E4222"      # Teks Utama & Tombol
+MUSTARD = "#F4C753"         # Aksen & Header
+MUTED_GREEN = "#5A6E4E"     # Teks Sekunder
+LIGHT_CARD = "#F4F7EF"      # Background Kotak
 
-# Menyembunyikan elemen bawaan Streamlit agar terlihat seperti aplikasi profesional
-HIDE_ST_STYLE = """
-<style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-</style>
-"""
-st.markdown(HIDE_ST_STYLE, unsafe_allow_html=True)
-
+# Injeksi Custom CSS untuk "memaksa" Streamlit berubah wujud
 CUSTOM_CSS = f"""
 <style>
-    .main {{
-        background-color: #FAFBFA;
+    /* Menyembunyikan elemen bawaan Streamlit */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+
+    /* Latar Belakang Utama Aplikasi */
+    .stApp {{
+        background-color: {SAGE_GREEN};
     }}
-    h1, h2, h3 {{
-        color: {BLUE_DARK};
-        font-family: 'Segoe UI', sans-serif;
+    
+    /* Mengubah warna font dasar */
+    html, body, [class*="css"]  {{
+        font-family: 'Nunito', 'Segoe UI', sans-serif;
+        color: {DARK_OLIVE};
     }}
+
+    h1, h2, h3, h4, h5, h6 {{
+        color: {DARK_OLIVE} !important;
+        font-weight: 800 !important;
+    }}
+
+    /* Kustomisasi Tampilan TABS (Biar mirip navigasi Pill) */
+    .stTabs [data-baseweb="tab-list"] {{
+        background-color: {LIGHT_CARD};
+        border-radius: 50px;
+        padding: 5px;
+        border: 1px solid #DCE2CD;
+        gap: 5px;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        border-radius: 50px;
+        padding: 10px 20px;
+        color: {MUTED_GREEN};
+        font-weight: bold;
+    }}
+    .stTabs [aria-selected="true"] {{
+        background-color: {DARK_OLIVE} !important;
+        color: {MUSTARD} !important;
+    }}
+
+    /* Kustomisasi Tombol Primary */
+    .stButton>button {{
+        background-color: {DARK_OLIVE};
+        color: {MUSTARD};
+        border-radius: 20px;
+        border: none;
+        font-weight: 900;
+        padding: 10px 24px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(46,66,34,0.2);
+    }}
+    .stButton>button:hover {{
+        background-color: #1E2E15;
+        color: {MUSTARD};
+        transform: translateY(-2px);
+    }}
+
+    /* Elemen Header / Hero (Kuning Mustard) */
     .hero-box {{
-        background: linear-gradient(135deg, {BLUE_PRIMARY} 0%, {GRAY_DARK} 100%);
-        padding: 32px 36px;
-        border-radius: 16px;
-        color: white;
+        background-color: {MUSTARD};
+        padding: 40px 48px;
+        border-radius: 40px;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 20px rgba(244,199,83,0.3);
+        position: relative;
+        overflow: hidden;
+    }}
+    .hero-title {{
+        color: {DARK_OLIVE};
+        font-size: 3rem;
+        font-weight: 900;
+        margin-bottom: 10px;
+        line-height: 1.1;
+    }}
+    .hero-subtitle {{
+        color: #4A5D3E;
+        font-size: 1.2rem;
+        font-weight: 600;
         margin-bottom: 24px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }}
-    .hero-box h1 {{
-        color: white;
-        margin-bottom: 8px;
-    }}
-    .hero-box p {{
-        color: #EBF5FB;
-        font-size: 18px;
-        margin-bottom: 0;
-        font-weight: 300;
-    }}
+
+    /* Kartu Statistik di Header */
     .stat-card {{
-        background-color: white;
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
+        background-color: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(5px);
+        border-radius: 24px;
         padding: 20px;
         text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }}
     .stat-card .big {{
         font-size: 32px;
-        font-weight: 800;
-        color: {BLUE_PRIMARY};
+        font-weight: 900;
+        color: {DARK_OLIVE};
+        line-height: 1;
+        margin-bottom: 5px;
     }}
     .stat-card .label {{
         font-size: 13px;
-        color: {GRAY_DARK};
-        font-weight: 500;
-        margin-top: 4px;
+        color: {MUTED_GREEN};
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }}
+
+    /* Kotak Hasil Rekomendasi (Highlight) */
     .result-box {{
-        border-radius: 12px;
-        padding: 20px 24px;
-        margin-top: 12px;
+        background-color: #FDF9EE;
+        border: 3px solid {MUSTARD};
+        border-radius: 32px;
+        padding: 30px;
+        margin-top: 10px;
+        box-shadow: 0 6px 15px rgba(244,199,83,0.2);
     }}
+    
     .badge {{
         display: inline-block;
         padding: 6px 16px;
         border-radius: 20px;
-        font-weight: 600;
-        font-size: 14px;
-        letter-spacing: 0.5px;
+        font-weight: 800;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }}
+
     div[data-testid="stMetricValue"] {{
-        color: {BLUE_PRIMARY};
+        color: {DARK_OLIVE};
+        font-weight: 900;
     }}
+    div[data-testid="stMetricLabel"] {{
+        color: {MUTED_GREEN};
+        font-weight: bold;
+    }}
+
     .footer-note {{
-        font-size: 12px;
-        color: {GRAY_MEDIUM};
+        font-size: 13px;
+        color: {MUTED_GREEN};
+        font-weight: bold;
         margin-top: 50px;
-        border-top: 1px solid #E2E8F0;
-        padding-top: 16px;
+        border-top: 2px dashed #DCE2CD;
+        padding-top: 20px;
         text-align: center;
     }}
 </style>
@@ -119,7 +183,7 @@ CUSTOM_CSS = f"""
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # =========================================================
-# DATA EV (UPDATE: 25 MOBIL TERBARU)
+# DATA EV (25 MOBIL TERBARU)
 # =========================================================
 
 @st.cache_data
@@ -203,12 +267,12 @@ def jalankan_clustering(df_kota):
 
 kota_dummy = jalankan_clustering(kota_dummy)
 
-# Pemetaan warna Biru-Abu untuk output visual klaster
-WARNA_KLASTER = {"Siap": BLUE_PRIMARY, "Bersyarat": GRAY_MEDIUM, "Belum Layak": GRAY_DARK}
-BG_KLASTER = {"Siap": BLUE_LIGHT, "Bersyarat": GRAY_LIGHT, "Belum Layak": "#E2E8F0"}
+# Pemetaan warna Lahantara untuk output visual klaster
+WARNA_KLASTER = {"Siap": DARK_OLIVE, "Bersyarat": MUSTARD, "Belum Layak": MUTED_GREEN}
+BG_KLASTER = {"Siap": LIGHT_CARD, "Bersyarat": "#FDF9EE", "Belum Layak": "#DCE2CD"}
 
 # =========================================================
-# FUNGSI ALGORITMA (Tetap utuh sesuai kebutuhan sebelumnya)
+# FUNGSI ALGORITMA 
 # =========================================================
 
 MARGIN_AMAN = 0.8
@@ -234,7 +298,6 @@ def trip_planner(model_ev, jarak_total_km, df_spklu, df_ev):
         titik_charging.append(titik)
         jarak_tertempuh = titik["jarak_dari_asal_km"]
 
-    # Kalkulasi waktu menggunakan referensi dummy SPKLU
     waktu_charging_total = sum(WAKTU_CHARGING_MENIT.get(t["daya_kw"], 40) for t in titik_charging)
     waktu_jalan_menit = (jarak_total_km / KECEPATAN_RATA2_KMH) * 60
     waktu_total_menit = waktu_jalan_menit + waktu_charging_total
@@ -297,99 +360,72 @@ def ev_feasibility_check(nama_kota, jarak_harian_km, anggaran_juta, df_ev, df_ko
 def buat_peta_trip(hasil_trip, df_spklu):
     titik_terpilih_nama = hasil_trip["titik_charging"]
     peta = folium.Map(location=[-6.6, 107.2], zoom_start=9, tiles="cartodbpositron")
-    folium.Marker([-6.200, 106.816], popup="Asal", icon=folium.Icon(color="darkblue", icon="play")).add_to(peta)
-    folium.Marker([-6.917, 107.619], popup="Tujuan", icon=folium.Icon(color="gray", icon="flag")).add_to(peta)
+    
+    # Warna Pin Map disesuaikan dengan tema
+    folium.Marker([-6.200, 106.816], popup="Asal", icon=folium.Icon(color="darkgreen", icon="play")).add_to(peta)
+    folium.Marker([-6.917, 107.619], popup="Tujuan", icon=folium.Icon(color="lightgray", icon="flag")).add_to(peta)
+    
     for _, row in df_spklu.iterrows():
         dipakai = row["nama"] in titik_terpilih_nama
-        # Ubah warna pin menjadi Biru jika dipakai, Abu-abu jika dilewati
-        pin_color = BLUE_PRIMARY if dipakai else GRAY_MEDIUM
+        # Ubah warna pin: Mustard jika dipakai, Hijau Muted jika dilewati
+        pin_color = MUSTARD if dipakai else MUTED_GREEN
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],
             radius=10 if dipakai else 6,
             popup=f"{row['nama']} ({row['daya_kw']} kW)",
-            color=pin_color,
-            fill=True, fill_color=pin_color, fill_opacity=0.85,
+            color=DARK_OLIVE if dipakai else MUTED_GREEN,
+            fill=True, fill_color=pin_color, fill_opacity=0.9,
         ).add_to(peta)
     return peta
 
 # =========================================================
-# HEADER / HERO
+# HEADER / HERO SECTION (Custom HTML untuk warna Mustard)
 # =========================================================
 
 st.markdown(f"""
 <div class="hero-box">
-    <h1>🔌 SETRUM</h1>
-    <p>Sistem Evaluasi Trips & Rute untuk Mobilitas EV — analisis berbasis data nyata sebelum membeli.</p>
+    <div class="hero-title">🍃 SETRUM</div>
+    <div class="hero-subtitle">Sistem Evaluasi Trips & Rute Mobilitas EV. Cek kecocokan mobil listrik impian dengan gaya hidupmu.</div>
+    <div style="display:flex; gap: 15px; flex-wrap: wrap;">
+        <div class="stat-card" style="flex:1;">
+            <div class="big">65%</div>
+            <div class="label">Khawatir Baterai</div>
+        </div>
+        <div class="stat-card" style="flex:1;">
+            <div class="big">1:75</div>
+            <div class="label">Rasio SPKLU/EV</div>
+        </div>
+        <div class="stat-card" style="flex:1;">
+            <div class="big">358K+</div>
+            <div class="label">Unit Terdaftar</div>
+        </div>
+        <div class="stat-card" style="flex:1;">
+            <div class="big">4.892</div>
+            <div class="label">SPKLU Aktif</div>
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown('<div class="stat-card"><div class="big">65%</div><div class="label">Konsumen khawatir ketahanan baterai</div></div>', unsafe_allow_html=True)
-with col2:
-    st.markdown('<div class="stat-card"><div class="big">1 : 75</div><div class="label">Rasio SPKLU terhadap populasi EV</div></div>', unsafe_allow_html=True)
-with col3:
-    st.markdown('<div class="stat-card"><div class="big">358K+</div><div class="label">Unit EV terdaftar di Indonesia</div></div>', unsafe_allow_html=True)
-with col4:
-    st.markdown('<div class="stat-card"><div class="big">4.892</div><div class="label">SPKLU aktif (Mei 2026)</div></div>', unsafe_allow_html=True)
-
-st.caption("Sumber Data: Populix 2024, Kementerian ESDM 2026, Korlantas Polri. Data ringkasan kontekstual, bukan bagian dari hasil analisis prototipe ini.")
-
-st.write("")
 
 # =========================================================
 # TAB UTAMA
 # =========================================================
 
-tab1, tab2, tab3 = st.tabs(["🗺️ Trip Planner", "✅ Feasibility Check", "📊 Peta Kesiapan Kota"])
+tab1, tab2, tab3 = st.tabs(["✅ Cek Kelayakan", "🗺️ Perencana Rute", "📊 Peta Kesiapan Kota"])
 
-# ---------- TAB 1: TRIP PLANNER ----------
+# ---------- TAB 1: FEASIBILITY CHECK ----------
 with tab1:
-    st.subheader("Rencanakan perjalanan EV-mu")
-    st.write("Simulasi rute contoh: **Jakarta → Bandung** (±150 km). Pilih model EV-mu untuk melihat titik isi ulang daya yang disarankan.")
+    st.markdown(f"<h3 style='color: {DARK_OLIVE};'>Apakah EV cocok untukmu?</h3>", unsafe_allow_html=True)
+    st.write("Sesuaikan profil mobilitas dan anggaranmu. Kami akan mencocokkannya dengan infrastruktur kota.")
+    st.write("---")
 
     colA, colB = st.columns([1, 2])
     with colA:
-        model_pilih = st.selectbox("Model EV", data_ev["model"].tolist())
-        jarak_total = st.slider("Jarak total perjalanan (km)", 20, 800, 150, step=10)
-        hitung = st.button("🔍 Hitung Rute", type="primary", use_container_width=True)
-
-    if hitung or "trip_result" in st.session_state:
-        hasil = trip_planner(model_pilih, jarak_total, spklu_dummy, data_ev)
-        st.session_state["trip_result"] = hasil
-
-        with colB:
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Jangkauan riil", f"{hasil['jangkauan_riil_km']} km", help="Dikoreksi -25% untuk pemakaian AC iklim tropis")
-            m2.metric("Jumlah charging", f"{hasil['jumlah_charging']}x")
-            m3.metric("Estimasi total waktu", f"{hasil['waktu_total_jam']} jam")
-
-            if hasil["titik_charging"]:
-                st.info("📍 Titik isi ulang yang disarankan: " + ", ".join(hasil["titik_charging"]))
-            else:
-                st.success("✅ Rute aman! Tidak perlu charging di tengah jalan untuk jarak tempuh ini.")
-
-        st.write("")
-        peta = buat_peta_trip(hasil, spklu_dummy)
-        st_folium(peta, width=None, height=420)
-
-    st.caption("⚠️ Data SPKLU di atas adalah ilustrasi (dummy) untuk keperluan prototipe.")
-
-# ---------- TAB 2: FEASIBILITY CHECK ----------
-with tab2:
-    with st.expander("Lihat Asumsi Kalkulasi SETRUM"):
-        st.write("1. **Koreksi Jarak:** Klaim jarak WLTP pabrikan dikurangi 25% (menjadi 0.75) untuk memperhitungkan kemacetan dan AC di iklim tropis.")
-        st.write("2. **Metode Skoring:** Menggabungkan infrastruktur kota (40%), kesesuaian baterai (35%), dan keterjangkauan anggaran (25%).")
-        
-    st.subheader("Apakah EV cocok untuk rutinitasmu?")
-
-    colA, colB = st.columns([1, 2])
-    with colA:
-        kota_pilih = st.selectbox("Kota domisili", kota_dummy["kota"].tolist())
+        kota_pilih = st.selectbox("Kota Domisili", kota_dummy["kota"].tolist())
         jarak_harian = st.slider("Jarak tempuh harian (km)", 5, 150, 40, step=5)
-        # Menyesuaikan slider dengan harga mobil yang kini bisa mencapai 1,2 Miliar
         anggaran = st.slider("Anggaran (juta Rupiah)", 150, 1500, 450, step=50)
-        cek = st.button("Cek Kelayakan", type="primary", use_container_width=True)
+        cek = st.button("⚡ Analisis Sekarang", type="primary", use_container_width=True)
 
     if cek or "feas_result" in st.session_state:
         df_hasil = ev_feasibility_check(kota_pilih, jarak_harian, anggaran, data_ev, kota_dummy)
@@ -397,33 +433,72 @@ with tab2:
         skor_top = df_hasil.iloc[0]["Skor Total"]
 
         if skor_top >= 75:
-            label, warna, bg = "Sangat Layak", BLUE_PRIMARY, BLUE_LIGHT
+            label, bg_warna, text_warna = "Sangat Direkomendasikan", MUSTARD, DARK_OLIVE
         elif skor_top >= 50:
-            label, warna, bg = "Layak dengan Catatan", GRAY_MEDIUM, GRAY_LIGHT
+            label, bg_warna, text_warna = "Alternatif Layak", LIGHT_CARD, DARK_OLIVE
         else:
-            label, warna, bg = "Belum Layak", GRAY_DARK, "#E2E8F0"
+            label, bg_warna, text_warna = "Belum Layak", "#DCE2CD", MUTED_GREEN
 
         with colB:
             st.markdown(f"""
-            <div class="result-box" style="background-color:{bg}; border: 1px solid {warna};">
-                <span class="badge" style="background-color:{warna}; color:white;">{label}</span>
-                <div style="font-size:36px; font-weight:700; color:{warna}; margin-top:8px;">{skor_top}/100</div>
-                <div style="color:{GRAY_DARK};">Skor kelayakan tertinggi berdasarkan profil kamu</div>
+            <div class="result-box">
+                <span class="badge" style="background-color: {DARK_OLIVE}; color: {MUSTARD};">{label}</span>
+                <h2 style="color: {DARK_OLIVE}; margin-top: 15px; margin-bottom: 5px; font-size: 2.2rem;">{df_hasil.iloc[0]['Model EV']}</h2>
+                <div style="display:flex; gap: 10px; margin-bottom: 15px;">
+                    <span style="background-color: white; padding: 5px 12px; border-radius: 10px; border: 1px solid #DCE2CD; font-weight: bold; color: {MUTED_GREEN};">🚗 Rp {df_hasil.iloc[0]['Harga (juta Rp)']} Jt</span>
+                    <span style="background-color: white; padding: 5px 12px; border-radius: 10px; border: 1px solid #DCE2CD; font-weight: bold; color: {MUTED_GREEN};">📍 {df_hasil.iloc[0]['Jangkauan Riil (km)']} km riil</span>
+                </div>
+                <div style="font-size:3.5rem; font-weight:900; color:{DARK_OLIVE}; line-height: 1;">{skor_top} <span style="font-size: 1rem; color: {MUTED_GREEN};">/100 SKOR KELAYAKAN</span></div>
             </div>
             """, unsafe_allow_html=True)
 
         st.write("")
-        st.write("**Rekomendasi model EV (diurutkan dari paling sesuai):**")
+        st.markdown(f"<h4 style='color: {DARK_OLIVE};'>Alternatif EV Lainnya</h4>", unsafe_allow_html=True)
+        # Menampilkan tabel alternatif
         st.dataframe(
-            df_hasil.style.background_gradient(subset=["Skor Total"], cmap="Blues"),
+            df_hasil.style.background_gradient(subset=["Skor Total"], cmap="YlGn"),
             use_container_width=True, hide_index=True
         )
 
+
+# ---------- TAB 2: TRIP PLANNER ----------
+with tab2:
+    st.markdown(f"<h3 style='color: {DARK_OLIVE};'>Perencana Rute EV</h3>", unsafe_allow_html=True)
+    st.write("Pilih mobilmu dan tentukan jarak rute. Algoritma kami memperhitungkan koreksi AC 25% dan margin keamanan 20%.")
+    st.write("---")
+
+    colA, colB = st.columns([1, 2])
+    with colA:
+        model_pilih = st.selectbox("Pilih EV", data_ev["model"].tolist())
+        jarak_total = st.slider("Jarak total rute (Contoh Jkt-Bdg: 150 km)", 20, 800, 150, step=10)
+        hitung = st.button("🗺️ Kalkulasi Rute", type="primary", use_container_width=True)
+
+    if hitung or "trip_result" in st.session_state:
+        hasil = trip_planner(model_pilih, jarak_total, spklu_dummy, data_ev)
+        st.session_state["trip_result"] = hasil
+
+        with colB:
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Jarak Riil", f"{hasil['jangkauan_riil_km']} km", help="Dikoreksi -25% untuk pemakaian AC iklim tropis")
+            m2.metric("Berhenti (Cas)", f"{hasil['jumlah_charging']} Kali")
+            m3.metric("Est. Total Waktu", f"{hasil['waktu_total_jam']} Jam")
+
+            if hasil["titik_charging"]:
+                st.warning(f"🔋 Perlu Charging di: {', '.join(hasil['titik_charging'])}")
+            else:
+                st.success("✅ Rute aman! Tidak perlu charging di jalan.")
+
+        st.write("")
+        peta = buat_peta_trip(hasil, spklu_dummy)
+        st_folium(peta, width=None, height=420)
+
+    st.caption("⚠️ Data SPKLU di atas adalah ilustrasi (dummy) untuk keperluan prototipe.")
+
+
 # ---------- TAB 3: PETA KESIAPAN KOTA ----------
 with tab3:
-    st.subheader("Hasil Analisis Klaster — Kesiapan EV per Kota")
-    st.write("Pengelompokan kota berdasarkan kepadatan SPKLU, pola mobilitas, daya beli, dan persepsi infrastruktur.")
-    st.warning("📌 Catatan metodologis: hasil di bawah memakai **data contoh 7 kota** untuk mendemonstrasikan alur program. Untuk laporan akhir, gantikan data kota dummy ini dengan data survei primer/skundermu.")
+    st.markdown(f"<h3 style='color: {DARK_OLIVE};'>Hasil Analisis Klaster — Kesiapan EV</h3>", unsafe_allow_html=True)
+    st.write("Pengelompokan kota berdasarkan kepadatan SPKLU, pola mobilitas, daya beli, dan persepsi.")
 
     colA, colB = st.columns([3, 2])
 
@@ -445,7 +520,6 @@ with tab3:
         st.write("**Posisi kota: mobilitas vs persepsi infrastruktur**")
         chart_data = kota_dummy[["kota", "jarak_tempuh_harian_km", "skor_persepsi_infrastruktur", "klaster"]].copy()
         
-        # Color mapping di scatter chart streamlit native hanya support nama kategori/hex
         st.scatter_chart(
             chart_data, x="jarak_tempuh_harian_km", y="skor_persepsi_infrastruktur",
             color="klaster", size=100,
@@ -457,6 +531,6 @@ with tab3:
 st.markdown("""
 <div class="footer-note">
     <strong>SETRUM</strong> — Prototipe untuk Statistics Infographic Competition, SATRIA DATA 2026.<br>
-    Desain antarmuka telah disesuaikan dengan tema Biru-Abu yang elegan.
+    Desain antarmuka telah dikustomisasi secara khusus meniru tema visual "Lahantara" (Earthy & Nature).
 </div>
 """, unsafe_allow_html=True)
