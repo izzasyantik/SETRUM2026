@@ -2,10 +2,12 @@
 SETRUM — Sistem Evaluasi Trips & Rute untuk Mobilitas EV
 Aplikasi web Streamlit — prototipe untuk SIC SATRIA DATA 2026
 
-REVISI 4: 
-- Integrasi parsing dinamis langsung dari Data_SPKLU_Rapi.xlsx - Sheet1.csv
+REVISI 5: 
+- Menggunakan pd.read_excel() untuk membaca file .xlsx murni.
 - Penyesuaian tema antarmuka ke Biru Abu-Abu (Blue-Gray).
 - Penulisan ulang formula menggunakan format LaTeX.
+
+PENTING: Pastikan library 'openpyxl' ditambahkan ke requirements.txt
 """
 
 import numpy as np
@@ -74,8 +76,8 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 @st.cache_data
 def load_spklu_semua():
-    # Membaca data mentah
-    df = pd.read_csv("Data_SPKLU_Rapi.xlsx - Sheet1.csv")
+    # Membaca data mentah dari file Excel murni
+    df = pd.read_excel("Data_SPKLU_Rapi.xlsx", engine="openpyxl")
     
     # Ekstraksi Daya (kW) dan Kategori dari kolom 'Tipe Charger'
     df['daya_kw'] = df['Tipe Charger'].str.extract(r'(\d+)').astype(float)
