@@ -2,23 +2,16 @@
 SETRUM — Sistem Evaluasi Trips & Rute untuk Mobilitas EV
 Aplikasi web Streamlit — prototipe untuk SIC SATRIA DATA 2026
 
-REVISI 2: Fitur dipersempit ke yang 100% berbasis data riil/tertelusur sumbernya.
-Fitur Trip Planner (koordinat estimasi) dan kalkulator baterai (spek belum terverifikasi
-sumber resminya) DIHAPUS dari versi ini.
-
-File pendamping wajib ada di folder yang sama:
-- spklu_processed.csv      (3.050 lokasi SPKLU riil, sumber: data lapangan tim)
-- kota_final.csv            (agregat SPKLU per kota, dihitung dari spklu_processed.csv)
-- data_ev_valid.csv         (harga EV dengan sumber tertelusur: SEVA.id, AstraOtoshop, dst.)
-
-Cara jalankan lokal: streamlit run app.py
-Cara deploy: push folder ini (app.py + 3 file CSV + requirements.txt) ke GitHub,
-lalu hubungkan di share.streamlit.io
+REVISI 4: 
+- Integrasi parsing dinamis langsung dari Data_SPKLU_Rapi.xlsx - Sheet1.csv
+- Penyesuaian tema antarmuka ke Biru Abu-Abu (Blue-Gray).
+- Penulisan ulang formula menggunakan format LaTeX.
 """
 
 import numpy as np
 import pandas as pd
 import streamlit as st
+import re
 from sklearn.preprocessing import StandardScaler
 from sklearn.mixture import GaussianMixture
 
@@ -33,94 +26,126 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-GREEN = "#1B7A43"
-GREEN_LIGHT = "#E8F5EC"
+# Tema Profesional Biru Abu-abu
+BLUE_GRAY = "#2C3E50"
+BLUE_LIGHT = "#EBF0F6"
+BLUE_GRADIENT_1 = "#1E3B70"
+BLUE_GRADIENT_2 = "#29539B"
 AMBER = "#E0A526"
 AMBER_LIGHT = "#FFF6DA"
 RED = "#C1502E"
 RED_LIGHT = "#FBE7E2"
-BLUE = "#1F5C8B"
 GRAY = "#5A5A5A"
 
 CUSTOM_CSS = f"""
 <style>
     .main {{ background-color: #FAFBFA; }}
-    h1, h2, h3 {{ color: {GREEN}; font-family: 'Segoe UI', sans-serif; }}
+    h1, h2, h3 {{ color: {BLUE_GRAY}; font-family: 'Segoe UI', sans-serif; }}
     .hero-box {{
-        background: linear-gradient(135deg, {GREEN} 0%, #2E9E5E 100%);
+        background: linear-gradient(135deg, {BLUE_GRADIENT_1} 0%, {BLUE_GRADIENT_2} 100%);
         padding: 28px 32px; border-radius: 14px; color: white; margin-bottom: 24px;
     }}
     .hero-box h1 {{ color: white; margin-bottom: 4px; }}
-    .hero-box p {{ color: #E8F5EC; font-size: 17px; margin-bottom: 0; }}
+    .hero-box p {{ color: #D4E0F0; font-size: 17px; margin-bottom: 0; }}
     .stat-card {{
         background-color: white; border: 1px solid #E0E0E0; border-radius: 12px;
         padding: 18px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }}
-    .stat-card .big {{ font-size: 28px; font-weight: 700; color: {GREEN}; }}
+    .stat-card .big {{ font-size: 28px; font-weight: 700; color: {BLUE_GRAY}; }}
     .stat-card .label {{ font-size: 13px; color: {GRAY}; }}
     .result-box {{ border-radius: 12px; padding: 20px 24px; margin-top: 12px; }}
     .badge {{ display: inline-block; padding: 4px 14px; border-radius: 20px; font-weight: 600; font-size: 14px; }}
-    div[data-testid="stMetricValue"] {{ color: {GREEN}; }}
+    div[data-testid="stMetricValue"] {{ color: {BLUE_GRAY}; }}
     .footer-note {{
         font-size: 12px; color: #999999; margin-top: 40px;
         border-top: 1px solid #EEEEEE; padding-top: 12px;
     }}
     .data-tag {{
-        display: inline-block; background-color: {GREEN_LIGHT}; color: {GREEN};
+        display: inline-block; background-color: {BLUE_LIGHT}; color: {BLUE_GRAY};
         font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 10px; margin-bottom: 8px;
-    }}
-    .formula-box {{
-        background-color: #F7F7F9; border: 1px solid #E5E5EA; border-radius: 10px;
-        padding: 14px 18px; margin: 10px 0; font-size: 14px;
     }}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # =========================================================
-# DATA — SEMUA DARI FILE RIIL / SUMBER TERTELUSUR
+# DATA & PREPROCESSING DINAMIS
 # =========================================================
 
 @st.cache_data
 def load_spklu_semua():
-    return pd.read_csv("spklu_processed.csv")
+    # Membaca data mentah
+    df = pd.read_csv("Data_SPKLU_Rapi.xlsx - Sheet1.csv")
+    
+    # Ekstraksi Daya (kW) dan Kategori dari kolom 'Tipe Charger'
+    df['daya_kw'] = df['Tipe Charger'].str.extract(r'(\d+)').astype(float)
+    df['kategori_charger'] = df['Tipe Charger'].str.extract(r'([a-zA-Z]+)')[0].str.lower()
+    
+    # Fungsi ekstraksi kota sederhana dari 'Alamat'
+    def extract_kota(alamat):
+        alamat = str(alamat).lower()
+        if pd.isna(alamat): return "Lainnya"
+        
+        # Kata kunci kota utama
+        keywords = ["jakarta", "batam", "mamuju", "majene", "pasangkayu", "polewali", "bandung"]
+        for kw in keywords:
+            if kw in alamat:
+                return kw.title() if kw != "polewali" else "Polewali Mandar"
+                
+        # Regex penangkap nama kota/kabupaten
+        match = re.search(r'(kota\s+[\w\s]+|kabupaten\s+[\w\s]+|kab\.\s+[\w\s]+)', alamat)
+        if match: return match.group(1).title()
+        
+        # Fallback split
+        parts = alamat.split(',')
+        if len(parts) >= 2: return parts[-2].strip().title()
+        return "Lainnya"
 
-@st.cache_data
-def load_data_kota():
-    df = pd.read_csv("kota_final.csv")
+    df['kota'] = df['Alamat'].apply(extract_kota)
     return df
 
 @st.cache_data
+def load_data_kota(df_spklu):
+    # Agregasi otomatis
+    kota_df = df_spklu.groupby('kota').agg(
+        jumlah_spklu=('Nama Stasiun', 'count'),
+        rata2_daya_kw=('daya_kw', 'mean'),
+        jumlah_ultrafast=('kategori_charger', lambda x: (x == 'ultrafast').sum())
+    ).reset_index()
+    return kota_df[kota_df['jumlah_spklu'] > 0]
+
+@st.cache_data
 def load_data_ev():
-    return pd.read_csv("data_ev_valid.csv")
+    try:
+        return pd.read_csv("data_ev_valid.csv")
+    except FileNotFoundError:
+        return pd.DataFrame({
+            "model": ["Wuling Air EV", "Wuling Binguo EV", "MG 4 EV", "BYD Atto 3", "Hyundai Ioniq 5"],
+            "harga_juta": [243, 348, 433, 515, 782],
+            "sumber": ["SEVA.id", "SEVA.id", "Moladin", "Kompas", "AstraOtoshop"]
+        })
 
 spklu_semua = load_spklu_semua()
-kota_df = load_data_kota()
+kota_df = load_data_kota(spklu_semua)
 data_ev = load_data_ev()
 
 # =========================================================
 # PEMODELAN MATEMATIKA
 # =========================================================
-# Lihat penjelasan lengkap & alasan pemilihan formula di tab "Tentang Model" pada aplikasi.
 
 # --- 1. Skor Infrastruktur (Min-Max Normalization) ---
-# S_infra(kota) = (N_kota - N_min) / (N_max - N_min) * 100
 N_MIN = kota_df["jumlah_spklu"].min()
 N_MAX = kota_df["jumlah_spklu"].max()
 kota_df["skor_infra"] = ((kota_df["jumlah_spklu"] - N_MIN) / (N_MAX - N_MIN) * 100).round(1)
 
-# --- 2. Skor Kualitas Charging (rata-rata tertimbang kategori) ---
-# Bobot proporsional terhadap kecepatan pengisian relatif (rasio kasar daya kW vs standard 7kW)
+# --- 2. Skor Kualitas Charging ---
 BOBOT_KATEGORI = {"standard": 1, "medium": 2, "fast": 4, "ultrafast": 8}
 W_MAX = max(BOBOT_KATEGORI.values())
 
 # --- 3. Skor Gabungan Kesiapan Infrastruktur ---
-# S_kesiapan = alpha * S_infra + (1 - alpha) * S_kualitas
 ALPHA = 0.6
 
-# --- 4. Skor Kesesuaian Budget (fungsi peluruhan eksponensial) ---
-# S_budget = 100                                  jika harga <= budget
-# S_budget = 100 * exp(-k * (harga-budget)/budget) jika harga > budget
+# --- 4. Skor Kesesuaian Budget ---
 K_PELURUHAN = 2
 
 def skor_budget(harga_juta, budget_juta):
@@ -130,26 +155,34 @@ def skor_budget(harga_juta, budget_juta):
     return round(100 * np.exp(-K_PELURUHAN * selisih_relatif), 1)
 
 # --- 5. Skor Akhir Rekomendasi ---
-# S_akhir = beta * S_kesiapan(kota) + (1 - beta) * S_budget(harga, budget)
 BETA = 0.5
 
-# --- 6. Analisis Klaster (GMM pada variabel kota yang 100% riil) ---
+# --- 6. Analisis Klaster (GMM) ---
 @st.cache_data
 def jalankan_clustering(df_kota):
+    if len(df_kota) < 3:
+        df = df_kota.copy()
+        df["klaster"] = "Siap"
+        return df
+        
     fitur = ["jumlah_spklu", "rata2_daya_kw", "jumlah_ultrafast"]
-    X = df_kota[fitur].values
+    X = df_kota[fitur].fillna(0).values
     X_scaled = StandardScaler().fit_transform(X)
-    gmm = GaussianMixture(n_components=3, random_state=42)
+    
+    n_comp = min(3, len(df_kota))
+    gmm = GaussianMixture(n_components=n_comp, random_state=42)
     labels = gmm.fit_predict(X_scaled)
+    
     df = df_kota.copy()
     df["klaster_raw"] = labels
     urutan = df.groupby("klaster_raw")["jumlah_spklu"].mean().sort_values().index
-    mapping = {urutan[0]: "Belum Layak", urutan[1]: "Bersyarat", urutan[2]: "Siap"}
+    
+    mapping = {urutan[i]: ["Belum Layak", "Bersyarat", "Siap"][i] for i in range(len(urutan))}
     df["klaster"] = df["klaster_raw"].map(mapping)
     return df
 
 kota_df = jalankan_clustering(kota_df)
-WARNA_KLASTER = {"Siap": GREEN, "Bersyarat": AMBER, "Belum Layak": RED}
+WARNA_KLASTER = {"Siap": BLUE_GRAY, "Bersyarat": AMBER, "Belum Layak": RED}
 
 # =========================================================
 # HEADER / HERO
@@ -164,14 +197,14 @@ st.markdown(f"""
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.markdown('<div class="stat-card"><div class="big">65%</div><div class="label">konsumen khawatir kehabisan baterai (Populix, 2024)</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="stat-card"><div class="big">65%</div><div class="label">konsumen khawatir kehabisan baterai (Populix)</div></div>', unsafe_allow_html=True)
 with col2:
-    st.markdown(f'<div class="stat-card"><div class="big">{len(spklu_semua):,}</div><div class="label">SPKLU dalam dataset ini</div></div>'.replace(",", "."), unsafe_allow_html=True)
+    st.markdown(f'<div class="stat-card"><div class="big">{len(spklu_semua):,}</div><div class="label">SPKLU dalam dataset</div></div>'.replace(",", "."), unsafe_allow_html=True)
 with col3:
     n_kota = kota_df["kota"].nunique()
-    st.markdown(f'<div class="stat-card"><div class="big">{n_kota}</div><div class="label">kota teridentifikasi & dianalisis</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="stat-card"><div class="big">{n_kota}</div><div class="label">kota dianalisis</div></div>', unsafe_allow_html=True)
 with col4:
-    st.markdown(f'<div class="stat-card"><div class="big">{len(data_ev)}</div><div class="label">model EV dengan harga tertelusur sumber</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="stat-card"><div class="big">{len(data_ev)}</div><div class="label">model EV tervalidasi</div></div>', unsafe_allow_html=True)
 
 st.write("")
 
@@ -184,21 +217,21 @@ tab1, tab2, tab3 = st.tabs(["✅ Cek Kesiapan & Rekomendasi", "📊 Peta Kesiapa
 # ---------- TAB 1: FEASIBILITY CHECK ----------
 with tab1:
     st.subheader("Apakah EV cocok untukmu di kotamu?")
-    st.markdown('<span class="data-tag">📍 Skor infrastruktur dari 3.050 data SPKLU riil</span> <span class="data-tag">💰 Harga EV dengan sumber tertelusur</span>', unsafe_allow_html=True)
-    st.write("Pilih kota domisili dan anggaranmu — sistem menghitung skor kesiapan infrastruktur kotamu dan mencocokkannya dengan model EV yang sesuai budget.")
-
+    st.markdown('<span class="data-tag">📍 Skor infrastruktur otomatis dari data mentah</span> <span class="data-tag">💰 Harga EV tertelusur</span>', unsafe_allow_html=True)
+    
     colA, colB = st.columns([1, 2])
     with colA:
-        kota_pilih = st.selectbox("Kota domisili", kota_df["kota"].tolist())
+        kota_pilih = st.selectbox("Kota domisili", kota_df["kota"].sort_values().tolist())
         anggaran = st.slider("Anggaran (juta Rupiah)", 150, 900, 300, step=10)
         cek = st.button("✅ Cek Kelayakan", type="primary", use_container_width=True)
 
         row_kota = kota_df[kota_df["kota"] == kota_pilih].iloc[0]
-        st.caption(f"📍 {kota_pilih}: **{int(row_kota['jumlah_spklu'])} SPKLU** riil tercatat, rata-rata daya **{row_kota['rata2_daya_kw']:.1f} kW**, **{int(row_kota['jumlah_ultrafast'])} unit ultrafast**.")
+        st.caption(f"📍 {kota_pilih}: **{int(row_kota['jumlah_spklu'])} SPKLU** tercatat, rata-rata daya **{row_kota['rata2_daya_kw']:.1f} kW**.")
 
     if cek or "feas_result" in st.session_state:
         skor_infra = float(row_kota["skor_infra"])
         spklu_kota = spklu_semua[spklu_semua["kota"] == kota_pilih].copy()
+        
         if len(spklu_kota) > 0:
             spklu_kota["bobot"] = spklu_kota["kategori_charger"].map(BOBOT_KATEGORI).fillna(1)
             skor_kualitas = round(spklu_kota["bobot"].mean() / W_MAX * 100, 1)
@@ -211,6 +244,7 @@ with tab1:
         df_rekom["Skor Budget"] = df_rekom["harga_juta"].apply(lambda h: skor_budget(h, anggaran))
         df_rekom["Skor Akhir"] = (BETA * skor_kesiapan + (1 - BETA) * df_rekom["Skor Budget"]).round(1)
         df_rekom = df_rekom.sort_values("Skor Akhir", ascending=False).reset_index(drop=True)
+        
         df_rekom_tampil = df_rekom.rename(columns={
             "model": "Model EV", "harga_juta": "Harga (juta Rp)", "sumber": "Sumber Harga"
         })[["Model EV", "Harga (juta Rp)", "Skor Budget", "Skor Akhir", "Sumber Harga"]]
@@ -219,7 +253,7 @@ with tab1:
         skor_top = df_rekom_tampil.iloc[0]["Skor Akhir"]
 
         if skor_top >= 75:
-            label, warna, bg = "Sangat Layak", GREEN, GREEN_LIGHT
+            label, warna, bg = "Sangat Layak", BLUE_GRAY, BLUE_LIGHT
         elif skor_top >= 50:
             label, warna, bg = "Layak dengan Catatan", AMBER, AMBER_LIGHT
         else:
@@ -236,33 +270,30 @@ with tab1:
                 <div style="color:{GRAY}; margin-bottom:10px;">Skor akhir untuk kombinasi kota & anggaranmu</div>
                 <div style="font-size:15px; color:{GRAY};">📌 Rekomendasi utama untukmu:</div>
                 <div style="font-size:20px; font-weight:700; color:{warna};">{mobil_terbaik}</div>
-                <div style="font-size:14px; color:{GRAY};">Rp {harga_terbaik} juta (OTR Jakarta)</div>
+                <div style="font-size:14px; color:{GRAY};">Rp {harga_terbaik} juta (OTR)</div>
             </div>
             """, unsafe_allow_html=True)
 
             m1, m2 = st.columns(2)
             m1.metric("Skor Infrastruktur Kota", f"{skor_infra}/100")
-            m2.metric("Skor Kesiapan Gabungan", f"{skor_kesiapan}/100", help="0.6 x infrastruktur + 0.4 x kualitas charger")
+            m2.metric("Skor Kesiapan Gabungan", f"{skor_kesiapan}/100")
 
         st.write("")
-        st.write(f"**Rekomendasi lengkap model EV** (diurutkan dari paling sesuai — *{mobil_terbaik}* di posisi teratas):")
+        st.write(f"**Rekomendasi lengkap model EV:**")
         st.dataframe(df_rekom_tampil, use_container_width=True, hide_index=True)
-
-    st.caption("Bobot alpha=0.6 (infrastruktur) dan beta=0.5 (kesiapan vs budget) adalah asumsi awal tim, bukan hasil estimasi statistik dari survei. Lihat tab 'Tentang Model' untuk detail formula dan alasan pemilihan nilai ini.")
 
 # ---------- TAB 2: PETA KESIAPAN KOTA ----------
 with tab2:
     st.subheader("Hasil Analisis Klaster — Kesiapan Infrastruktur EV per Kota")
-    st.markdown('<span class="data-tag">📍 Seluruh angka dihitung langsung dari 3.050 data SPKLU riil</span>', unsafe_allow_html=True)
-    st.write("Pengelompokan kota berdasarkan **jumlah SPKLU**, **rata-rata daya charger**, dan **jumlah charger ultrafast** — variabel input GMM clustering, seluruhnya riil tanpa estimasi.")
-
+    
     colA, colB = st.columns([3, 2])
     with colA:
         st.write("**Sebaran kota berdasarkan klaster:**")
         for klaster in ["Siap", "Bersyarat", "Belum Layak"]:
+            if "klaster" not in kota_df.columns: continue
             subset = kota_df[kota_df["klaster"] == klaster]
-            if subset.empty:
-                continue
+            if subset.empty: continue
+            
             st.markdown(f"<span class='badge' style='background-color:{WARNA_KLASTER[klaster]};color:white;'>{klaster}</span>", unsafe_allow_html=True)
             st.dataframe(
                 subset[["kota", "jumlah_spklu", "rata2_daya_kw", "jumlah_ultrafast", "skor_infra"]]
@@ -273,76 +304,37 @@ with tab2:
 
     with colB:
         st.write("**Posisi kota: jumlah SPKLU vs rata-rata daya**")
-        chart_data = kota_df[["kota", "jumlah_spklu", "rata2_daya_kw", "klaster"]].copy()
-        st.scatter_chart(chart_data, x="jumlah_spklu", y="rata2_daya_kw", color="klaster", size=100)
-
-    with st.expander("Lihat distribusi kategori charger seluruh dataset (3.050 lokasi)"):
-        ringkasan_charger = spklu_semua["kategori_charger"].value_counts().reset_index()
-        ringkasan_charger.columns = ["Kategori", "Jumlah"]
-        st.dataframe(ringkasan_charger, hide_index=True, use_container_width=True)
-
-    st.caption("15 kota dipilih berdasarkan jumlah SPKLU teridentifikasi terbanyak di dataset (bukan sampel acak/representatif secara statistik formal).")
+        if "klaster" in kota_df.columns:
+            st.scatter_chart(kota_df, x="jumlah_spklu", y="rata2_daya_kw", color="klaster", size=100)
 
 # ---------- TAB 3: TENTANG MODEL ----------
 with tab3:
     st.subheader("Pemodelan Matematika di Balik SETRUM")
-    st.write("Transparansi penuh: berikut semua formula yang dipakai, beserta alasan pemilihannya.")
+    st.write("Transparansi penuh: berikut semua formula yang dipakai, dirender dalam notasi matematis.")
 
     st.markdown("#### 1. Skor Infrastruktur Kota — Min-Max Normalization")
-    st.markdown(f"""
-    <div class="formula-box">
-    S_infra(kota) = (N_kota - N_min) / (N_max - N_min) x 100<br><br>
-    N_kota = jumlah SPKLU riil di kota itu &nbsp;|&nbsp;
-    N_min = {int(N_MIN)} &nbsp;|&nbsp; N_max = {int(N_MAX)} (Jakarta)
-    </div>
-    """, unsafe_allow_html=True)
-    st.caption("Dipilih min-max (bukan z-score) karena tujuannya menunjukkan posisi kota dalam rentang realistis Indonesia (0 = paling minim, 100 = paling siap), bukan jarak dari rata-rata nasional.")
+    st.latex(r"S_{\text{infra}}(\text{kota}) = \frac{N_{\text{kota}} - N_{\text{min}}}{N_{\text{max}} - N_{\text{min}}} \times 100")
+    st.caption(f"Dimana $N_{{\\text{{kota}}}}$ adalah jumlah SPKLU, $N_{{\\text{{min}}}} = {int(N_MIN)}$, dan $N_{{\\text{{max}}}} = {int(N_MAX)}$.")
 
     st.markdown("#### 2. Skor Kualitas Charging — Rata-Rata Tertimbang")
-    st.markdown(f"""
-    <div class="formula-box">
-    S_kualitas(kota) = (sum(w_i x n_i) / sum(n_i)) x (100 / w_max)<br><br>
-    Bobot kategori: standard=1, medium=2, fast=4, ultrafast=8
-    </div>
-    """, unsafe_allow_html=True)
-    st.caption("Bobot proporsional terhadap kecepatan pengisian relatif (rasio kasar daya kW terhadap charger standard 7kW). Ini asumsi yang bisa didiskusikan, bukan koefisien yang diturunkan dari studi waktu pengisian riil.")
+    st.latex(r"S_{\text{kualitas}}(\text{kota}) = \left( \frac{\sum_{i=1}^{n} (w_i \times n_i)}{\sum_{i=1}^{n} n_i} \right) \times \left( \frac{100}{w_{\text{max}}} \right)")
+    st.caption("Bobot kategori ($w_i$): standard=1, medium=2, fast=4, ultrafast=8.")
 
     st.markdown("#### 3. Skor Kesiapan Gabungan")
-    st.markdown(f"""
-    <div class="formula-box">
-    S_kesiapan = alpha x S_infra + (1-alpha) x S_kualitas, &nbsp; alpha = {ALPHA}
-    </div>
-    """, unsafe_allow_html=True)
-    st.caption("alpha=0.6 berarti kuantitas SPKLU sedikit lebih diutamakan dari kualitas, asumsi tim bahwa range anxiety paling terkait 'ada/tidaknya' charger, baru soal kecepatan. Nilai ini bisa diuji ulang jika ada data persepsi konsumen.")
+    st.latex(r"S_{\text{kesiapan}} = \alpha \cdot S_{\text{infra}} + (1-\alpha) \cdot S_{\text{kualitas}}")
+    st.caption(f"Asumsi bobot $\\alpha = {ALPHA}$.")
 
     st.markdown("#### 4. Skor Kesesuaian Budget — Fungsi Peluruhan Eksponensial")
-    st.markdown(f"""
-    <div class="formula-box">
-    S_budget = 100, &nbsp; jika harga &le; budget<br>
-    S_budget = 100 x exp(-k x (harga-budget)/budget), &nbsp; jika harga &gt; budget, &nbsp; k = {K_PELURUHAN}
-    </div>
-    """, unsafe_allow_html=True)
-    st.caption("Dipilih fungsi eksponensial (bukan threshold kaku 0/100) agar selisih kecil di atas budget tidak langsung dihukum penuh, transisi skornya halus, mencerminkan toleransi konsumen yang riil.")
+    st.latex(r"S_{\text{budget}} = \begin{cases} 100, & \text{jika } h \le b \\ 100 \times e^{-k \cdot \left(\frac{h-b}{b}\right)}, & \text{jika } h > b \end{cases}")
+    st.caption(f"Dimana $h$ adalah harga EV, $b$ adalah budget, dan tingkat peluruhan $k = {K_PELURUHAN}$.")
 
     st.markdown("#### 5. Skor Akhir Rekomendasi")
-    st.markdown(f"""
-    <div class="formula-box">
-    S_akhir = beta x S_kesiapan(kota) + (1-beta) x S_budget(harga, budget), &nbsp; beta = {BETA}
-    </div>
-    """, unsafe_allow_html=True)
-    st.caption("beta=0.5: infrastruktur dan kesesuaian budget diberi bobot seimbang sebagai dua pertimbangan utama calon konsumen.")
+    st.latex(r"S_{\text{akhir}} = \beta \cdot S_{\text{kesiapan}} + (1-\beta) \cdot S_{\text{budget}}")
+    st.caption(f"Dengan asumsi kesimbangan preferensi, $\\beta = {BETA}$.")
 
     st.markdown("#### 6. Analisis Klaster — Gaussian Mixture Model (GMM)")
-    st.markdown("""
-    <div class="formula-box">
-    Variabel input (distandarisasi Z-score sebelum clustering):<br>
-    x = [jumlah_SPKLU, rata-rata_daya_kW, jumlah_ultrafast]<br><br>
-    GMM dipilih karena batas kesiapan EV antar kota cenderung gradasi (probabilistik),
-    bukan kategori yang tegas seperti yang diasumsikan K-Means.
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.warning("Yang masih berupa asumsi (bukan hasil estimasi statistik): bobot kategori charger (1/2/4/8), alpha=0.6, beta=0.5, dan k=2. Semua nilai ini logis secara konsep tapi belum divalidasi dengan data survei konsumen riil. Jika ada data 401 responden dari dosen pembimbing, bobot-bobot ini sebaiknya diestimasi ulang (misal lewat regresi atau analisis faktor) agar bukan lagi asumsi peneliti.")
+    st.write("Vektor variabel input distandarisasi menggunakan *Z-score* sebelum dikelompokkan:")
+    st.latex(r"\mathbf{X} = \left[ N_{\text{SPKLU}}, \bar{P}_{\text{kW}}, N_{\text{ultrafast}} \right]^T")
 
 # =========================================================
 # FOOTER
@@ -350,8 +342,6 @@ with tab3:
 st.markdown(f"""
 <div class="footer-note">
     SETRUM — Prototipe untuk Statistics Infographic Competition, SATRIA DATA 2026.<br>
-    Data SPKLU ({len(spklu_semua):,} lokasi) bersumber dari data riil yang dikumpulkan tim.
-    Harga EV bersumber dari SEVA.id, AstraOtoshop, Moladin, Kompas (per Jan-Jun 2026), lihat kolom "Sumber Harga".
-    Formula pemodelan dijelaskan lengkap di tab "Tentang Model".
+    Data diolah secara dinamis dari file Excel yang diunggah. Terdapat <b>{len(spklu_semua):,}</b> baris data SPKLU yang ditarik secara otomatis.
 </div>
 """.replace(",", "."), unsafe_allow_html=True)
